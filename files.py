@@ -1,4 +1,5 @@
 import os
+import urllib.request
 from pathlib import Path
 from typing import Union, Iterable
 
@@ -8,4 +9,14 @@ MaybePathlike = Union[Pathlike, None]
 def dir_size(directory: Path) -> int: return file_sizes(f for f in directory.iterdir() if f.is_file())
 def file_size(f: Path) -> int: return os.path.getsize(str(f))
 def file_sizes(files: Iterable[Path]) -> int: return sum(file_size(f) for f in files)
+
+
+def read_from_web_or_disk(url_or_path: Union[Path, str]):
+    path = str(url_or_path)
+    if path.startswith('http'):
+        response = urllib.request.urlopen(path)
+        return response.read().decode('utf-8')
+    else:
+        with open(path) as f:
+            return f.read()
 
