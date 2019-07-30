@@ -1,7 +1,9 @@
 import shutil
 from contextlib import suppress
 from pathlib import Path
-from typing import FrozenSet, Tuple, Union, List, Iterable
+from typing import FrozenSet, Tuple, Union, List
+from utils.files import Pathlike
+
 
 class LatLon(tuple):
     def __new__(cls, lat: int, lon: int):
@@ -14,9 +16,15 @@ class LatLon(tuple):
     def folder_and_file_stem(self) -> str:
         return '%+03d%+04d/%s' % (self[0] - self[0] % 10, self[1] - self[1] % 10, self)
 
+    @property
+    def lon(self): return self[1]
+
+    @property
+    def lat(self): return self[0]
+
     @staticmethod
     def from_str(dsf_file_or_folder: str):
-        assert is_dsf_like_path(dsf_file_or_folder), 'Expected format +00+000, but got ' + dsf_file_or_folder
+        assert is_dsf_like_path(dsf_file_or_folder), 'Expected format +00+000., but got ' + dsf_file_or_folder
         return LatLon(lat=int(dsf_file_or_folder[:3]), lon=int(dsf_file_or_folder[3:]))
 
 
