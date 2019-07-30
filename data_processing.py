@@ -1,6 +1,6 @@
 import multiprocessing
 import subprocess
-from typing import Any, Callable, Iterable, Set, Tuple, Union
+from typing import Any, Callable, Iterable, Set, Tuple, Union, List
 
 
 def pipeline(functions: Iterable[Callable], initial_data: Any, parallel: bool=True) -> Any:
