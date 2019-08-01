@@ -22,6 +22,11 @@ def pipeline(functions: Iterable[Callable], initial_data: Any, parallel: bool=Tr
     return data
 
 
+def parallel_map(function: Callable, data: Iterable[Any]) -> Iterable[Any]:
+    with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+        return pool.map(function, data)
+
+
 def synchronous_subprocess(*args: Any) -> subprocess.CompletedProcess:
     if len(args) == 1 and isinstance(args[0], list):
         args = args[0]
