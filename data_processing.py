@@ -1,3 +1,4 @@
+import itertools
 import multiprocessing
 import subprocess
 from typing import Any, Callable, Iterable, Set, Tuple, Union, List
@@ -60,4 +61,13 @@ def flatten(list_of_list_of_lists: Union[List[Any], Tuple[Any], Set[Any]]) -> It
                 yield j
         else:
             yield i
+
+
+def partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[Iterable[Any], Iterable[Any]]:
+    """Use a predicate to partition entries into false entries and true entries
+    E.g, partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9"""
+
+    t1, t2 = itertools.tee(iterable)
+    return itertools.filterfalse(pred, t1), filter(pred, t2)
+
 
