@@ -46,8 +46,8 @@ def dsf_folder_and_file(path_to_tile: Path) -> str:
 
 def all_tiles(degree_width_height: int=1) -> FrozenSet[LatLon]:
     return frozenset(LatLon(lat=lat, lon=lon)
-                     for lon in range(-180, 171, degree_width_height)
-                     for lat in range(-80, 71, degree_width_height))
+                     for lon in range(-180, 179, degree_width_height)
+                     for lat in range(-60, 74, degree_width_height))
 
 def dsf_tile_bbox(file_name: Union[LatLon, Path], width_height_deg=1) -> Tuple[int, int, int, int]:
     base_lat_lon = file_name if isinstance(file_name, LatLon) else LatLon.from_str(file_name.stem)
