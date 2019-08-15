@@ -20,3 +20,8 @@ def read_from_web_or_disk(url_or_path: Union[Path, str]):
         with open(path) as f:
             return f.read()
 
+def subdirectories(dir: Path) -> Iterable[Path]:
+    return (d for d in dir.glob('*') if d.is_dir())
+
+def files_recursive(dir: Path) -> Iterable[Path]:
+    return (file_or_directory for file_or_directory in dir.glob('**/*') if file_or_directory.is_file())
