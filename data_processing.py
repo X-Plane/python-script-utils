@@ -68,7 +68,7 @@ def partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[Ite
     t1, t2 = itertools.tee(iterable)
     return itertools.filterfalse(pred, t1), filter(pred, t2)
 
-def reifeid_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[List[Any], List[Any]]:
+def reified_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[List[Any], List[Any]]:
     """partition() with its return value as a pair of lists, not generators"""
     p1, p2 = partition(pred, iterable)
     return list(p1), list(p2)
