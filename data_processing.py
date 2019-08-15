@@ -17,15 +17,18 @@ def pipeline(functions: Iterable[Callable], initial_data: Any, parallel: bool=Tr
             for f in functions:
                 data = pool.map(f, data)
     else:
-        nongenerating_map = lambda fn, dta: list(map(fn, dta))
         for f in functions:
-            data = nongenerating_map(f, data)
+            data = synchronous_map(f, data)
     return data
 
 
 def parallel_map(function: Callable, data: Iterable[Any]) -> Iterable[Any]:
     with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
         return pool.map(function, data)
+
+
+def synchronous_map(fn: Callable, data: Iterable[Any]):
+    return list(map(fn, data))
 
 
 def synchronous_subprocess(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
