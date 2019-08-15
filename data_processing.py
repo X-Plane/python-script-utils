@@ -65,8 +65,12 @@ def flatten(list_of_list_of_lists: Union[List[Any], Tuple[Any], Set[Any]]) -> It
 def partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[Iterable[Any], Iterable[Any]]:
     """Use a predicate to partition entries into false entries and true entries
     E.g, partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9"""
-
     t1, t2 = itertools.tee(iterable)
     return itertools.filterfalse(pred, t1), filter(pred, t2)
+
+def reifeid_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[List[Any], List[Any]]:
+    """partition() with its return value as a pair of lists, not generators"""
+    p1, p2 = partition(pred, iterable)
+    return list(p1), list(p2)
 
 
