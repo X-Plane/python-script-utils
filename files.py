@@ -25,3 +25,7 @@ def subdirectories(dir: Pathlike) -> Iterable[Path]:
 
 def files_recursive(dir: Pathlike) -> Iterable[Path]:
     return (file_or_directory for file_or_directory in Path(dir).glob('**/*') if file_or_directory.is_file())
+
+def resolve_symlinks(p: Pathlike) -> Path:
+    """Unlke Path.resolve(), this does *not* throw an error if the path doesn't exist."""
+    return Path(os.path.realpath(p))
