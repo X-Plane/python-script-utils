@@ -1,7 +1,7 @@
 import os
 import urllib.request
 from pathlib import Path
-from typing import Union, Iterable
+from typing import Union, Iterable, List, Callable
 
 Pathlike = Union[Path, str]
 MaybePathlike = Union[Pathlike, None]
@@ -26,6 +26,15 @@ def subdirectories(dir: Pathlike) -> Iterable[Path]:
 def files_recursive(dir: Pathlike) -> Iterable[Path]:
     return (file_or_directory for file_or_directory in Path(dir).glob('**/*') if file_or_directory.is_file())
 
+def files_recursive_filtered(dir: Pathlike, want_files_in_this_dir: Callable[[Path], bool]=lambda p: True) -> Iterable[Path]:
+    return (file_or_directory
+            for file_or_directory in Path(dir).glob('**/*')
+            if want_files_in_this_dir(file_or_directory.parent) and file_or_directory.is_file())
+
 def resolve_symlinks(p: Pathlike) -> Path:
     """Unlke Path.resolve(), this does *not* throw an error if the path doesn't exist."""
     return Path(os.path.realpath(p))
+
+def read_lines(p: Pathlike) -> List[str]:
+    with Path(p).open() as f:
+        return list(f.readlines())
