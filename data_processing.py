@@ -80,13 +80,11 @@ def reified_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> T
 
 def retry(action: Callable, max_tries=5):
     attempted = 0
-    last_error = None
     while True:
         try:
-            action()
-            return
+            return action()
         except Exception as e:
             attempted += 1
             if attempted == max_tries:
-                raise last_error
-            sleep(1)
+                raise e
+            sleep(attempted)
