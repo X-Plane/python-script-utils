@@ -25,11 +25,11 @@ def subdirectories(dir: Pathlike) -> Iterable[Path]:
     return (d for d in Path(dir).glob('*') if d.is_dir())
 
 def files_recursive(dir: Pathlike) -> Iterable[Path]:
-    assert dir.is_dir(), 'Directory %s does not exist' % dir
+    assert Path(dir).is_dir(), 'Directory %s does not exist' % dir
     return (file_or_directory for file_or_directory in Path(dir).glob('**/*') if file_or_directory.is_file())
 
 def files_recursive_filtered(dir: Pathlike, want_files_in_this_dir: Callable[[Path], bool]=lambda p: True) -> Iterable[Path]:
-    assert dir.is_dir(), 'Directory %s does not exist' % dir
+    assert Path(dir).is_dir(), 'Directory %s does not exist' % dir
     return (file_or_directory
             for file_or_directory in Path(dir).glob('**/*')
             if want_files_in_this_dir(file_or_directory.parent) and file_or_directory.is_file())
