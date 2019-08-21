@@ -1,6 +1,7 @@
 import itertools
 import multiprocessing
 import subprocess
+from time import sleep
 from typing import Any, Callable, Iterable, Set, Tuple, Union, List
 
 
@@ -77,3 +78,15 @@ def reified_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> T
     return list(p1), list(p2)
 
 
+def retry(action: Callable, max_tries=5):
+    attempted = 0
+    last_error = None
+    while True:
+        try:
+            action()
+            return
+        except Exception as e:
+            attempted += 1
+            if attempted == max_tries:
+                raise last_error
+            sleep(1)
