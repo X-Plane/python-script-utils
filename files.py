@@ -21,7 +21,7 @@ def read_from_web_or_disk(url_or_path: Union[Path, str]):
             return f.read()
 
 def subdirectories(dir: Pathlike) -> Iterable[Path]:
-    assert dir.is_dir(), 'Directory %s does not exist' % dir
+    assert Path(dir).is_dir(), 'Directory %s does not exist' % dir
     return (d for d in Path(dir).glob('*') if d.is_dir())
 
 def files_recursive(dir: Pathlike) -> Iterable[Path]:
