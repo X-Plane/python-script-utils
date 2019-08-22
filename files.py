@@ -1,3 +1,4 @@
+import hashlib
 import os
 import urllib.request
 from pathlib import Path
@@ -43,3 +44,14 @@ def resolve_symlinks(p: Pathlike) -> Path:
 def read_lines(p: Pathlike) -> List[str]:
     with Path(p).open() as f:
         return list(f.readlines())
+
+def read_binary(p: Pathlike) -> bytes:
+    return Path(p).open('rb').read()
+
+
+def md5_hash(file_path_or_binary_data: Union[Path, bytes]) -> str:
+    assert not isinstance(file_path_or_binary_data, str), 'str type is ambiguous: did you mean this as a file path or binary data?'
+    if isinstance(file_path_or_binary_data, Path):
+        return md5_hash(read_binary(file_path_or_binary_data))
+    return hashlib.md5(file_path_or_binary_data).hexdigest()
+
