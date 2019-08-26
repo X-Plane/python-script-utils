@@ -12,6 +12,8 @@ def file_size_bytes(f: Pathlike) -> int: return os.path.getsize(str(f))
 def file_sizes_bytes(files: Iterable[Pathlike]) -> int: return sum(file_size_bytes(f) for f in files)
 file_size = file_size_bytes
 file_sizes = file_sizes_bytes
+def file_size_mb(f: Pathlike) -> float: return file_size_bytes(f) / 1024 / 1024
+def file_sizes_mb(files: Iterable[Pathlike]) -> int: return file_sizes_bytes(files) / 1024 / 1024
 
 
 def read_from_web_or_disk(url_or_path: Union[Path, str]):
