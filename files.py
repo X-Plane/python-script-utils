@@ -2,7 +2,7 @@ import hashlib
 import os
 import urllib.request
 from pathlib import Path
-from typing import Union, Iterable, List, Callable
+from typing import Union, Iterable, List, Callable, Optional
 
 Pathlike = Union[Path, str]
 MaybePathlike = Union[Pathlike, None]
@@ -14,6 +14,13 @@ file_size = file_size_bytes
 file_sizes = file_sizes_bytes
 def file_size_mb(f: Pathlike) -> float: return file_size_bytes(f) / 1024 / 1024
 def file_sizes_mb(files: Iterable[Pathlike]) -> int: return file_sizes_bytes(files) / 1024 / 1024
+
+def source_is_newer_than_dest(src: Pathlike, dst: Pathlike, debug_src_missing: Optional[str]=None):
+    assert Path(src).exists(), f'Source {src} does not exist\n{debug_src_missing if debug_src_missing else ""}'
+    return not Path(dst).exists() or Path(src).stat().st_mtime > Path(dst).stat().st_mtime
+
+def path_has_prefix(path: Pathlike, prefix: Pathlike) -> bool:
+    return str(path).startswith(str(prefix))
 
 
 def read_from_web_or_disk(url_or_path: Union[Path, str]):
