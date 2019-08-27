@@ -50,6 +50,35 @@ def resolve_symlinks(p: Pathlike) -> Path:
     """Unlke Path.resolve(), this does *not* throw an error if the path doesn't exist."""
     return Path(os.path.realpath(p))
 
+def correct_case(p: Pathlike, allow_file_not_found: bool=True) -> Path:
+    """
+    Given a path on a case-insensitive file system, gives you the canonical version of the path.
+    E.g., if your file is at /foo/bar/baz.bang and you pass in /fOo/Bar/BAZ.bang, you get back the correct version.
+    """
+    # This is actually kind of a pain in the ass. We have to walk the complete path up to the file,
+    # listing directories as we go, and "choosing" the correct case for each component from the list.
+    # This will fail if your file system is case-sensitive and allowed you to do something evil like
+    # create different files name like /foo/bar and /foo/BaR
+    parts = []
+    suspect_parts = Path(p).parts
+    for part_idx, part in enumerate(suspect_parts):
+        if part == '/':
+            parts.append(part)
+        else:
+            path_up_to_this_part = Path(*suspect_parts[:part_idx])
+            for choice in path_up_to_this_part.glob('*'):
+                if choice.name.lower() == part.lower():
+                    parts.append(choice.name)
+                    break
+            else:  # nobreak
+                if allow_file_not_found:
+                    parts.append(part)
+                else:
+                    raise FileNotFoundError(p)
+    out = Path(*parts)
+    assert str(p).lower() == str(out).lower()
+    return out
+
 def read_lines(p: Pathlike) -> List[str]:
     with Path(p).open() as f:
         return list(f.readlines())
