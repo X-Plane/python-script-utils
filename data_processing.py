@@ -1,6 +1,7 @@
 import itertools
 import multiprocessing
 import subprocess
+from contextlib import suppress
 from time import sleep
 from typing import Any, Callable, Iterable, Set, Tuple, Union, List
 
@@ -43,8 +44,10 @@ def synchronous_subprocess(*args: Any, **kwargs: Any) -> subprocess.CompletedPro
                          cwd=str(kwargs['cwd']) if 'cwd' in kwargs else None,
                          check=kwargs['check'] if 'check' in kwargs else None)
     # Let's not make clients down the line deal with bytes objeces
-    out.stderr = out.stderr.decode() if out.stderr else ''
-    out.stdout = out.stdout.decode() if out.stdout else ''
+    with suppress(UnicodeDecodeError):
+        out.stderr = out.stderr.decode() if out.stderr else ''
+    with suppress(UnicodeDecodeError):
+        out.stdout = out.stdout.decode() if out.stdout else ''
     return out
 
 
