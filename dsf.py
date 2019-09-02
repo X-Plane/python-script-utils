@@ -28,9 +28,18 @@ class LatLon(tuple):
         return LatLon(lat=int(dsf_file_or_folder[:3]), lon=int(dsf_file_or_folder[3:]))
 
 
-def is_dsf_like_path(file_or_dir: Pathlike):
-    stem = file_or_dir.stem if isinstance(file_or_dir, Path) else Path(file_or_dir).stem
-    return len(stem) == 7 and stem[0] in ('+', '-') and stem[3] in ('+', '-')
+def is_dsf_like_path(file_or_dir: Pathlike, check_parent_dir: bool=False):
+    def component_is_dsf_like(path_component: str):
+        return len(path_component) == 7 and path_component[0] in ('+', '-') and path_component[3] in ('+', '-')
+
+    stem = Path(file_or_dir).stem
+    stem_is_dsf_like = component_is_dsf_like(stem)
+
+    if check_parent_dir:
+        parent_name = Path(file_or_dir).parent.name
+        return stem_is_dsf_like and component_is_dsf_like(parent_name)
+    else:
+        return stem_is_dsf_like
 
 def dsf_folder(path_to_tile: Path) -> str:
     """Transforms 'foo/bar/+40-130/+47-123.pvr' into '+40-130'"""
