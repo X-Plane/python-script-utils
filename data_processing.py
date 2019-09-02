@@ -43,7 +43,7 @@ def synchronous_subprocess(*args: Any, **kwargs: Any) -> subprocess.CompletedPro
     out = subprocess.run([str(arg) for arg in args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          cwd=str(kwargs['cwd']) if 'cwd' in kwargs else None,
                          check=kwargs['check'] if 'check' in kwargs else None)
-    # Let's not make clients down the line deal with bytes objeces
+    # Let's not make clients down the line deal with bytes objects
     with suppress(UnicodeDecodeError):
         out.stderr = out.stderr.decode() if out.stderr else ''
     with suppress(UnicodeDecodeError):
