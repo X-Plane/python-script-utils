@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
 import os
 from enum import Enum
-
-# Tyler says: The StrikeTracker interface doesn't allow us to just pass a stinking username & password
-#             with every request... instead, we have to first make a request (WITH THE USERNAME & PASSWORD)
-#             to get a "token"... then we send that *token* with future requests.
-#             Note though, that unlike a goddamn username & password, this token will expire in an hour.
-#             We'll have to add *additional* complexity to the script if we ever want sessions longer than that.
 from getpass import getpass
 from pathlib import Path
-
 import requests
-
 from utils.files import Pathlike
 
 global cdn_token
-cdn_token = None
+try:
+    cdn_token = os.environ['HIGHWINDS_TOKEN']
+except KeyError:
+    cdn_token = None  # we'll generate a temporary token via username & password on our first interaction with the CDN
+
 
 class CdnServer(Enum):
     MobileSecure = 'b3y9j3a5'
@@ -84,7 +80,7 @@ class StrikeTrackerClient:
             raise RuntimeError('Could not send purge batch', purge_response)
         return purge_response.json()['id']
 
-    def purge_status(self, account_hash, job_id):
+    def purge_status(self, account_hash, job_id) -> float:
         status_response = requests.get(self.base_url + ('/api/v1/accounts/%s/purge/%s' % (account_hash, job_id,)), headers={
             'Authorization': 'Bearer %s' % self.token,
             })
@@ -93,7 +89,7 @@ class StrikeTrackerClient:
         return float(status_response.json()['progress'])
 
 
-def mobile_abs_server_path(secured_or_unsecured: CdnServer, rel_path: Pathlike=Path('')):
+def mobile_abs_server_path(secured_or_unsecured: CdnServer, rel_path: Pathlike=Path('')) -> Path:
     subdir = 'mobile_unsecured' if secured_or_unsecured == CdnServer.MobileUnsecured else 'mobile_secured'
     return (Path('/var/www/cdn-root/content') / subdir) / rel_path
 
@@ -101,12 +97,8 @@ def mobile_abs_server_path(secured_or_unsecured: CdnServer, rel_path: Pathlike=P
 def flush_cdn_cache(server: CdnServer, mobile_abs_path: Pathlike='/', recursive: bool=True):
     global cdn_token
     client = StrikeTrackerClient(token=cdn_token)
-    if not client.token:
-        try:
-            password = os.environ['HIGHWINDS']
-        except KeyError:
-            password = getpass('Highwinds Password: ').strip()
-        cdn_token = client.create_token('austin@x-plane.com', password, 'mobile.x-plane.com')
+    if not client.token:  # we'll need to generate a temporary token
+        cdn_token = client.create_token('austin@x-plane.com', getpass('Highwinds Password: ').strip(), 'mobile.x-plane.com')
 
-    assert str(mobile_abs_path).startswith('/')
-    client.purge(server.value, ["http://cds.j4b5j9p4.hwcdn.net%s" % mobile_abs_path], recursive)
+    assert str(mobile_abs_path).startswith('/'), 'CDN path was not absolute'
+    client.purge('c7c3x3s9', [f"http://cds.{server.value}.hwcdn.net{mobile_abs_path}"], recursive)
