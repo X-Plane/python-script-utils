@@ -1,4 +1,4 @@
-#!/env/bin python3
+#!/usr/bin/env python3
 from contextlib import suppress
 from functools import reduce
 from pathlib import Path
