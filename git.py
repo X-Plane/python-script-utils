@@ -4,7 +4,7 @@
 import logging
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import List, Optional
+from typing import List, Optional, FrozenSet
 
 from utils.data_processing import checked_subprocess, remove_none
 
@@ -44,6 +44,9 @@ def git_modified_files(from_commit: str, to_commit: str) -> List[Path]:
 def git_current_branch() -> str:
     return git('rev-parse', '--abbrev-ref', 'HEAD').strip()
 
+
+def git_all_known_tags() -> FrozenSet[str]:
+    return frozenset(git('tag').strip().splitlines(keepends=False))
 
 def git_current_tags() -> List[str]:
     return git_tags_for_commit('HEAD')
