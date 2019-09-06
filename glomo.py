@@ -54,6 +54,16 @@ def parse_component_list(path_to_component_list_txt: Pathlike='https://lookup.x-
     nuked_end = skipped_header.split('ENDOFLIST')[0]
     return [ComponentBlock.from_str(component_token + block) for block in nuked_end.split(component_token) if block]
 
+def component_list_version(path_to_component_list_txt: Pathlike='https://lookup.x-plane.com/_lookup_mobile_/component_list.txt') -> int:
+    next_line_is_version = False
+    for line in read_from_web_or_disk(path_to_component_list_txt):
+        if line.rstrip() == 'COMPONENTS':
+            assert not next_line_is_version
+            next_line_is_version = True
+        elif next_line_is_version:
+            return int(line)
+    raise RuntimeError('Failed to parse component_list.txt version')
+
 
 def component_versions(components: Iterable[ComponentBlock]) -> Dict[str, List[int]]:
     return {component.component_name: component.manifest_versions
