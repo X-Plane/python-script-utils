@@ -1,9 +1,10 @@
 import itertools
 import multiprocessing
 import subprocess
-from contextlib import suppress
 from time import sleep
 from typing import Any, Callable, Iterable, Set, Tuple, Union, List
+
+take_first_n: Callable[[Iterable[Any], int], Any] = itertools.islice
 
 
 def pipeline(functions: Iterable[Callable], initial_data: Any, parallel: bool=True) -> Any:
