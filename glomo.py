@@ -56,7 +56,7 @@ def parse_component_list(path_to_component_list_txt: Pathlike='https://lookup.x-
 
 def component_list_version(path_to_component_list_txt: Pathlike='https://lookup.x-plane.com/_lookup_mobile_/component_list.txt') -> int:
     next_line_is_version = False
-    for line in read_from_web_or_disk(path_to_component_list_txt):
+    for line in read_from_web_or_disk(path_to_component_list_txt).splitlines():
         if line.rstrip() == 'COMPONENTS':
             assert not next_line_is_version
             next_line_is_version = True
