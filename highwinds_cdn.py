@@ -3,7 +3,9 @@ import os
 from enum import Enum
 from getpass import getpass
 from pathlib import Path
-import requests
+from typing import Iterable, Union, List, Collection
+
+import requests  # TODO: Remove dependency for downstream clients
 from utils.files import Pathlike
 
 global cdn_token
@@ -94,11 +96,17 @@ def mobile_abs_server_path(secured_or_unsecured: CdnServer, rel_path: Pathlike=P
     return (Path('/var/www/cdn-root/content') / subdir) / rel_path
 
 
-def flush_cdn_cache(server: CdnServer, mobile_abs_path: Pathlike='/', recursive: bool=True):
+def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collection[Pathlike]]='/', recursive: bool=True):
     global cdn_token
     client = StrikeTrackerClient(token=cdn_token)
     if not client.token:  # we'll need to generate a temporary token
         cdn_token = client.create_token('austin@x-plane.com', getpass('Highwinds Password: ').strip(), 'mobile.x-plane.com')
 
-    assert str(mobile_abs_path).startswith('/'), 'CDN path was not absolute'
-    client.purge('c7c3x3s9', [f"http://cds.{server.value}.hwcdn.net{mobile_abs_path}"], recursive)
+    if isinstance(mobile_abs_paths, str) or isinstance(mobile_abs_paths, Path):
+        mobile_abs_paths = [mobile_abs_paths]
+
+    assert all(str(path).startswith('/') for path in mobile_abs_paths), 'CDN path was not absolute'
+    urls = [f"http://cds.{server.value}.hwcdn.net{path}"
+            for path in mobile_abs_paths]
+    # TODO: Wait until the purge succeeds
+    client.purge('c7c3x3s9', urls, recursive)
