@@ -33,6 +33,10 @@ def synchronous_map(fn: Callable, data: Iterable[Any]):
     return list(map(fn, data))
 
 
+def take_first_n(generator: Iterable[Any], n: int):
+    return itertools.islice(generator, n)
+
+
 def synchronous_subprocess(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     if len(args) == 1:
         if isinstance(args[0], list):
