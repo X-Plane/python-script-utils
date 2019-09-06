@@ -46,8 +46,10 @@ def git_current_branch() -> str:
 
 
 def git_current_tags() -> List[str]:
-    return git('tag', '-l', '--points-at', 'HEAD').strip().split()
+    return git_tags_for_commit('HEAD')
 
+def git_tags_for_commit(sha_or_name: str) -> List[str]:
+    return git('tag', '-l', '--points-at', sha_or_name).strip().split()
 
 def git_create_tag(new_tag: str):
     git('tag', new_tag)
