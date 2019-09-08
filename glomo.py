@@ -1,8 +1,9 @@
 import logging
+from collections import defaultdict, namedtuple
 from dataclasses import dataclass
 from urllib.error import URLError
 from pathlib import Path
-from typing import List, Iterable, Dict
+from typing import List, Iterable, Dict, Optional, Tuple, DefaultDict
 from utils.files import read_from_web_or_disk, Pathlike
 from utils.highwinds_cdn import CdnServer
 
@@ -69,5 +70,108 @@ def component_versions(components: Iterable[ComponentBlock]) -> Dict[str, List[i
     return {component.component_name: component.manifest_versions
             for component in components}
 
+
+ManifestHistory = namedtuple('ManifestHistory', ['version'])  # the most *recent* manifest version which touched this file for a modification or delete
+
+@dataclass
+class ManifestEntry:
+    hash: str
+    in_zip: Optional[Path]=None  # None if this is a RAWFILE, or the path of the ZIP this is contained in
+
+@dataclass(frozen=True)
+class ComponentManifest:
+    """Represents the directory.txt manifest for a component, with both the hashes of current files and the file history"""
+    version: int
+    install_path_prefix: Path
+    entries: DefaultDict[Pathlike, List[ManifestEntry]]  # A given path on disk may be in many places in the manifest (included in an arbitrary number of ZIPs)
+    history: Dict[Pathlike, ManifestHistory]
+    zips: Dict[Path, str]  # associates ZIP paths with their hash
+
+    def all_paths_all_entries(self) -> List[Tuple[Path, ManifestEntry]]:
+        """Flattens the entries dict to give you an iterable of all paths on disk and all their corresponding manifest entries"""
+        return [(Path(path), entry)
+                for path, locations in self.entries.items()
+                for entry in locations]
+
+    # I'm sorry to whomever needs to maintain this...including you future-Chris...but for some reason I found it easier
+    # to use REGEX to parse this manifest file than normal string utilities and so....here we are. I will say, 99% of the
+    # matching is REGEX 101 with two exceptions:
+    #   1) Matching floating point values = ([+-]?(?:[0-9]*[.])?[0-9]+)
+    #   2) Matching space-escaped strings like our paths which may have Earth\ Nav\ Data for example. We don't want to see those spaces as whitespace and so we have = ((?:[^\\\s]|\\.)+)
+    # Feel free to insult and scathe me for it but I'm at least making SOME attempt to document this so...I'm not a complete asshole.
+    @classmethod
+    def from_file(cls, manifest_file_path_or_url: Optional[Pathlike]) -> Optional['ComponentManifest']:
+        import os
+        import re
+
+        prev_manifest_version = -1
+        install_path_prefix = ""
+        entries = defaultdict(list)
+        history = dict()
+        zips = dict()
+
+        if manifest_file_path_or_url:
+            most_recent_zip: Optional[Path] = None
+            for line in read_from_web_or_disk(manifest_file_path_or_url).splitlines():
+                # Look at each line for the version number. Until we find it, we don't care about anything else!
+                if prev_manifest_version == -1:
+                    match_obj = re.match(r'^MANIFEST_VERSION\s+([0-9]+)\s*$', str(line))
+                    if match_obj:
+                        prev_manifest_version = int(match_obj.group(1))
+                        continue
+                else:
+                    line.strip()
+                    # Now look at each line and see if it's an install path prefix
+                    if not install_path_prefix and line.startswith("INSTALL_PATH_PREFIX"):
+                        match_obj = re.match(r'^INSTALL_PATH_PREFIX\s+(.*)', str(line))
+                        if match_obj:
+                            install_path_prefix = cls.unescape_spaces(str(match_obj.group(1)))
+                            continue
+                    elif line.startswith("ZIP") or line.startswith("ZIPFILE") or line.startswith("RAWFILE"):
+                        # Check for RAWFILE line
+                        match_obj = re.match(r'^RAWFILE\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+(\S+)\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+((?:[^\\\s]|\\.)+)\s+((?:[^\\\s]|\\.)+)', str(line))
+                        if match_obj and len(match_obj.groups()) == 9:
+                            path = cls.unescape_spaces(os.path.join(install_path_prefix, match_obj.group(8)))
+                            assert all(entry.in_zip for entry in entries[path]), f'Duplicated raw file {path}'
+                            entries[path].append(ManifestEntry(hash=match_obj.group(7)))
+                            continue
+
+                        # Check for ZIP line
+                        match_obj = re.match(r'^ZIP\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+((?:[^\\\s]|\\.)+)\s+((?:[^\\\s]|\\.)+)', str(line))
+                        if match_obj and len(match_obj.groups()) == 4:
+                            most_recent_zip = Path(install_path_prefix) / cls.unescape_spaces(match_obj.group(3))
+                            zips[most_recent_zip] = match_obj.group(2)
+                            continue
+
+                        # Check for ZIPFILE line
+                        match_obj = re.match(r'^ZIPFILE\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+(\S+)\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+(.+)', str(line))
+                        if match_obj and len(match_obj.groups()) == 8:
+                            assert most_recent_zip, 'This ZIPFILE does not seem to be contained in a ZIP...?'
+                            path = cls.unescape_spaces(os.path.join(install_path_prefix, match_obj.group(8)))
+                            assert not any(mfst_entry.in_zip == most_recent_zip for mfst_entry in entries[path]), f'File {path} must be unique within the ZIP {most_recent_zip}'
+                            entries[path].append(ManifestEntry(hash=match_obj.group(7), in_zip=most_recent_zip))
+                            continue
+
+                        raise RuntimeError("We either found a mal-formed manifest line, or this parser has a bug. The line was:\n" + line)
+                    elif line.startswith("FILE_HISTORY"):
+                        match_obj = re.match(r'^FILE_HISTORY\s+([0-9]+)\s+(.+)', str(line))
+                        if match_obj and len(match_obj.groups()) == 2:
+                            path = os.path.join(match_obj.group(2))
+                            assert path not in history, f'Founnd duplicate history entry for {path}\nHistory entry should only be the most *recent* manifest version which touched this file for a modification or delete.'
+                            history[path] = ManifestHistory(int(match_obj.group(1)))
+                            continue
+            return cls(prev_manifest_version, Path(install_path_prefix), entries, history, zips)
+        else:  # no file given
+            return None
+
+    @classmethod
+    def from_file_with_next_version(cls, manifest_file_path_or_url: Optional[Pathlike]) -> Tuple[Optional['ComponentManifest'], int]:
+        out_manifest = cls.from_file(manifest_file_path_or_url)
+        next_version = out_manifest.version + 1 if out_manifest else 1
+        return out_manifest, next_version
+
+    @staticmethod
+    def unescape_spaces(s):
+        return str(s).replace("\\ ", " ")
 
 
