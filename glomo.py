@@ -103,7 +103,7 @@ class ComponentManifest:
     def from_file(cls, manifest_file_path_or_url: Optional[Pathlike]) -> Optional['ComponentManifest']:
         import re
 
-        prev_manifest_version = -1
+        prev_manifest_version: Optional[int] = None
         install_path_prefix: Optional[Path] = None
         entries = defaultdict(list)
         history = dict()
@@ -113,7 +113,7 @@ class ComponentManifest:
             most_recent_zip: Optional[Path] = None
             for line in read_from_web_or_disk(manifest_file_path_or_url).splitlines():
                 # Look at each line for the version number. Until we find it, we don't care about anything else!
-                if prev_manifest_version == -1:
+                if prev_manifest_version is None:
                     match_obj = re.match(r'^MANIFEST_VERSION\s+([0-9]+)\s*$', str(line))
                     if match_obj:
                         prev_manifest_version = int(match_obj.group(1))
@@ -159,6 +159,10 @@ class ComponentManifest:
                             assert path not in history, f'Founnd duplicate history entry for {path}\nHistory entry should only be the most *recent* manifest version which touched this file for a modification or delete.'
                             history[path] = ManifestHistory(int(match_obj.group(1)))
                             continue
+
+            assert prev_manifest_version is not None, 'Manifest was missing a version'
+            assert install_path_prefix is not None, 'Manifest was missing an install path prefix'
+            assert entries, 'No entries for manifest... this will not be a very useful component!'
             return cls(prev_manifest_version, Path(install_path_prefix), entries, history, zips)
         else:  # no file given
             return None
