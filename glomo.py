@@ -83,8 +83,8 @@ class ComponentManifest:
     """Represents the directory.txt manifest for a component, with both the hashes of current files and the file history"""
     version: int
     install_path_prefix: Path
-    entries: DefaultDict[Pathlike, List[ManifestEntry]]  # A given path on disk may be in many places in the manifest (included in an arbitrary number of ZIPs)
-    history: Dict[Pathlike, ManifestHistory]
+    entries: DefaultDict[Path, List[ManifestEntry]]  # A given path on disk may be in many places in the manifest (included in an arbitrary number of ZIPs)
+    history: Dict[Path, ManifestHistory]
     zips: Dict[Path, str]  # associates ZIP paths with their hash
 
     def all_paths_all_entries(self) -> List[Tuple[Path, ManifestEntry]]:
@@ -101,11 +101,10 @@ class ComponentManifest:
     # Feel free to insult and scathe me for it but I'm at least making SOME attempt to document this so...I'm not a complete asshole.
     @classmethod
     def from_file(cls, manifest_file_path_or_url: Optional[Pathlike]) -> Optional['ComponentManifest']:
-        import os
         import re
 
         prev_manifest_version = -1
-        install_path_prefix = ""
+        install_path_prefix: Optional[Path] = None
         entries = defaultdict(list)
         history = dict()
         zips = dict()
@@ -131,7 +130,7 @@ class ComponentManifest:
                         # Check for RAWFILE line
                         match_obj = re.match(r'^RAWFILE\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+(\S+)\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+((?:[^\\\s]|\\.)+)\s+((?:[^\\\s]|\\.)+)', str(line))
                         if match_obj and len(match_obj.groups()) == 9:
-                            path = cls.unescape_spaces(os.path.join(install_path_prefix, match_obj.group(8)))
+                            path = cls.unescape_spaces(install_path_prefix / match_obj.group(8))
                             assert all(entry.in_zip for entry in entries[path]), f'Duplicated raw file {path}'
                             entries[path].append(ManifestEntry(hash=match_obj.group(7)))
                             continue
@@ -147,7 +146,7 @@ class ComponentManifest:
                         match_obj = re.match(r'^ZIPFILE\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+(\S+)\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+(.+)', str(line))
                         if match_obj and len(match_obj.groups()) == 8:
                             assert most_recent_zip, 'This ZIPFILE does not seem to be contained in a ZIP...?'
-                            path = cls.unescape_spaces(os.path.join(install_path_prefix, match_obj.group(8)))
+                            path = cls.unescape_spaces(install_path_prefix / match_obj.group(8))
                             assert not any(mfst_entry.in_zip == most_recent_zip for mfst_entry in entries[path]), f'File {path} must be unique within the ZIP {most_recent_zip}'
                             entries[path].append(ManifestEntry(hash=match_obj.group(7), in_zip=most_recent_zip))
                             continue
@@ -156,7 +155,7 @@ class ComponentManifest:
                     elif line.startswith("FILE_HISTORY"):
                         match_obj = re.match(r'^FILE_HISTORY\s+([0-9]+)\s+(.+)', str(line))
                         if match_obj and len(match_obj.groups()) == 2:
-                            path = os.path.join(match_obj.group(2))
+                            path = Path(match_obj.group(2))
                             assert path not in history, f'Founnd duplicate history entry for {path}\nHistory entry should only be the most *recent* manifest version which touched this file for a modification or delete.'
                             history[path] = ManifestHistory(int(match_obj.group(1)))
                             continue
@@ -171,7 +170,7 @@ class ComponentManifest:
         return out_manifest, next_version
 
     @staticmethod
-    def unescape_spaces(s):
-        return str(s).replace("\\ ", " ")
+    def unescape_spaces(pathlike: Pathlike) -> Path:
+        return Path(str(pathlike).replace("\\ ", " "))
 
 
