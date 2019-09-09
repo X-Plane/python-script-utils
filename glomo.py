@@ -163,6 +163,8 @@ class ComponentManifest:
             assert prev_manifest_version is not None, 'Manifest was missing a version'
             assert install_path_prefix is not None, 'Manifest was missing an install path prefix'
             assert entries, 'No entries for manifest... this will not be a very useful component!'
+            for disk_path, manifest_entries in entries.items():
+                assert len(set(entry.hash for entry in manifest_entries)) <= 1, f'The same file ({disk_path}) wound up with different hashes... Huh?'
             return cls(prev_manifest_version, Path(install_path_prefix), entries, history, zips)
         else:  # no file given
             return None
