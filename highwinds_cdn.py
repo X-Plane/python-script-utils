@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import logging
 import os
 from enum import Enum
 from getpass import getpass
 from pathlib import Path
+from time import sleep
 from typing import Iterable, Union, List, Collection
 
 import requests  # TODO: Remove dependency for downstream clients
@@ -29,9 +31,10 @@ class CdnServer(Enum):
 
 class StrikeTrackerClient:
     """Copied with minor modifications from the no-longer-maintained official client: https://github.com/Highwinds/striketracker"""
-    def __init__(self, base_url='https://striketracker.highwinds.com', token=None):
+    def __init__(self, base_url='https://striketracker.highwinds.com', account_hash='c7c3x3s9', token=None):
         self.base_url = base_url
         self.token = token
+        self.account_hash = account_hash
 
     def create_token(self, username, password, application=None):
         if application is None:
@@ -53,12 +56,12 @@ class StrikeTrackerClient:
         user = user_response.json()
         if 'accountHash' not in user or 'id' not in user:
             raise RuntimeError('Could not fetch user\'s root account hash', user_response)
-        account_hash = user['accountHash']
+        self.account_hash = user['accountHash']
         user_id = user['id']
 
         # Generate a new API token
         token_response = requests.post(self.base_url + ('/api/v1/accounts/{account_hash}/users/{user_id}/tokens'.format(
-            account_hash=account_hash, user_id=user_id
+            account_hash=self.account_hash, user_id=user_id
         )), json={
             "password": password, "application": application
         }, headers={
@@ -70,8 +73,8 @@ class StrikeTrackerClient:
         self.token = token_response.json()['token']
         return self.token
 
-    def purge(self, account_hash, urls, recursive=True):
-        purge_response = requests.post(self.base_url + ('/api/v1/accounts/%s/purge' % account_hash), json={
+    def purge(self, urls, recursive=True):
+        purge_response = requests.post(f'{self.base_url}/api/v1/accounts/{self.account_hash}/purge', json={
             "list": [{"url": url, "recursive":  recursive}
                      for url in urls]
         }, headers={
@@ -82,8 +85,8 @@ class StrikeTrackerClient:
             raise RuntimeError('Could not send purge batch', purge_response)
         return purge_response.json()['id']
 
-    def purge_status(self, account_hash, job_id) -> float:
-        status_response = requests.get(self.base_url + ('/api/v1/accounts/%s/purge/%s' % (account_hash, job_id,)), headers={
+    def purge_status(self, job_id) -> float:
+        status_response = requests.get(f'{self.base_url}/api/v1/accounts/{self.account_hash}/purge/{job_id}', headers={
             'Authorization': 'Bearer %s' % self.token,
             })
         if 'progress' not in status_response.json():
@@ -96,7 +99,7 @@ def mobile_abs_server_path(secured_or_unsecured: CdnServer, rel_path: Pathlike=P
     return (Path('/var/www/cdn-root/content') / subdir) / rel_path
 
 
-def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collection[Pathlike]]='/', recursive: bool=True):
+def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collection[Pathlike]]='/', recursive: bool=True, await_confirmation: bool=False):
     global cdn_token
     client = StrikeTrackerClient(token=cdn_token)
     if not client.token:  # we'll need to generate a temporary token
@@ -108,5 +111,8 @@ def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collect
     assert all(str(path).startswith('/') for path in mobile_abs_paths), 'CDN path was not absolute'
     urls = [f"http://cds.{server.value}.hwcdn.net{path}"
             for path in mobile_abs_paths]
-    # TODO: Wait until the purge succeeds
-    client.purge('c7c3x3s9', urls, recursive)
+    purge_job_id = client.purge(urls, recursive)
+    while await_confirmation and client.purge_status(purge_job_id) < 100:
+        logging.info('Waiting for purge to complete')
+        sleep(1)
+
