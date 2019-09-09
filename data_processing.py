@@ -79,6 +79,8 @@ def reified_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> T
     p1, p2 = partition(pred, iterable)
     return list(p1), list(p2)
 
+def reified_filter(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> List[Any]:
+    return list(filter(pred, iterable))
 
 def retry(action: Callable, max_tries=5):
     attempted = 0
