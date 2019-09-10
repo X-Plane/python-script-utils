@@ -41,12 +41,17 @@ def synchronous_subprocess(*args: Any, **kwargs: Any) -> subprocess.CompletedPro
         elif isinstance(args[0], str):
             args = args[0].split(' ')
 
-    out = subprocess.run([str(arg) for arg in args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         cwd=str(kwargs['cwd']) if 'cwd' in kwargs else None,
-                         check=kwargs['check'] if 'check' in kwargs else None)
-    # Let's not make clients down the line deal with bytes objects
-    out.stderr = out.stderr.decode(errors='replace') if out.stderr else ''
-    out.stdout = out.stdout.decode(errors='replace') if out.stdout else ''
+    try:
+        out = subprocess.run([str(arg) for arg in args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(kwargs['cwd']) if 'cwd' in kwargs else None,
+                             check=kwargs['check'] if 'check' in kwargs else None)
+    except subprocess.CalledProcessError as e:
+        e.stderr = e.stderr.decode(errors='replace') if e.stderr else ''
+        e.stdout = e.stdout.decode(errors='replace') if e.stdout else ''
+        raise e
+    else:  # Let's not make clients down the line deal with bytes objects
+        out.stderr = out.stderr.decode(errors='replace') if out.stderr else ''
+        out.stdout = out.stdout.decode(errors='replace') if out.stdout else ''
     return out
 
 
