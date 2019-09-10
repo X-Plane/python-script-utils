@@ -16,7 +16,7 @@ def git(*args) -> str:
         logging.error(e.args)
         logging.error(e.stderr)
         raise e
-    return result.stdout
+    return result.stdout if result.stdout else result.stderr
 
 
 def git_modified_files(from_commit: str, to_commit: str) -> List[Path]:
