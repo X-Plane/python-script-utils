@@ -121,5 +121,6 @@ def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collect
         if waited > 30 + len(mobile_abs_paths):
             raise TimeoutError(f'CDN cache flushed timed out after {waited} seconds')
         elif waited % 10 == 0:
-            logging.info(f'Waiting for purge to complete (currently at {status}')
+            logging.info(f'Waiting for purge to complete (currently at {status}, after {waited} seconds waiting)')
+    logging.info(f'Purge completed after {waited} seconds')
 
