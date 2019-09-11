@@ -85,7 +85,8 @@ class StrikeTrackerClient:
             raise RuntimeError('Could not send purge batch', purge_response)
         return purge_response.json()['id']
 
-    def purge_status(self, job_id) -> float:
+    def purge_status_ratio(self, job_id) -> float:
+        """Returns the progress as a ratio of the total items to be purged (in the range 0 to 1)"""
         status_response = requests.get(f'{self.base_url}/api/v1/accounts/{self.account_hash}/purge/{job_id}', headers={
             'Authorization': 'Bearer %s' % self.token,
             })
@@ -113,14 +114,14 @@ def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collect
             for path in mobile_abs_paths]
     purge_job_id = client.purge(urls, recursive)
     waited = 0
-    status = 0
-    while await_confirmation and status < 100:
-        status = client.purge_status(purge_job_id)
+    ratio_complete = 0
+    while await_confirmation and ratio_complete < 0.99:
+        ratio_complete = client.purge_status_ratio(purge_job_id)
         sleep(1)
         waited += 1
         if waited > 30 + len(mobile_abs_paths):
             raise TimeoutError(f'CDN cache flushed timed out after {waited} seconds')
         elif waited % 10 == 0:
-            logging.info(f'Waiting for purge to complete (currently at {status}, after {waited} seconds waiting)')
+            logging.info(f'Waiting for purge to complete (currently at {ratio_complete * 100}%, after {waited} seconds waiting)')
     logging.info(f'Purge completed after {waited} seconds')
 
