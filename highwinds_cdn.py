@@ -112,7 +112,11 @@ def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collect
     urls = [f"http://cds.{server.value}.hwcdn.net{path}"
             for path in mobile_abs_paths]
     purge_job_id = client.purge(urls, recursive)
+    waited = 0
     while await_confirmation and client.purge_status(purge_job_id) < 100:
         logging.info('Waiting for purge to complete')
         sleep(1)
+        waited += 1
+        if waited > 30 + len(mobile_abs_paths):
+            raise TimeoutError('CDN cache flushed timed out after {waited} seconds')
 
