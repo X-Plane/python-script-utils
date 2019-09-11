@@ -42,7 +42,9 @@ def synchronous_subprocess(*args: Any, **kwargs: Any) -> subprocess.CompletedPro
             args = args[0].split(' ')
 
     try:
-        out = subprocess.run([str(arg) for arg in args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        out = subprocess.run([str(arg) for arg in args],
+                             stdout=None if 'capture_stdout' in kwargs and not kwargs['capture_stdout'] else subprocess.PIPE,
+                             stderr=None if 'capture_stderr' in kwargs and not kwargs['capture_stderr'] else subprocess.PIPE,
                              cwd=str(kwargs['cwd']) if 'cwd' in kwargs else None,
                              check=kwargs['check'] if 'check' in kwargs else None)
     except subprocess.CalledProcessError as e:

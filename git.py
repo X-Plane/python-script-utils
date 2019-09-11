@@ -9,9 +9,9 @@ from typing import List, Optional, FrozenSet
 from utils.data_processing import checked_subprocess, remove_none
 
 
-def git(*args) -> str:
+def git(*args, **kwargs) -> str:
     try:
-        result = checked_subprocess(['git'] + list(args))
+        result = checked_subprocess(['git'] + list(args), **kwargs)
     except CalledProcessError as e:
         logging.error(e.args)
         logging.error(e.stderr)
@@ -54,5 +54,5 @@ def git_current_tags() -> List[str]:
 def git_tags_for_commit(sha_or_name: str) -> List[str]:
     return git('tag', '-l', '--points-at', sha_or_name).strip().split()
 
-def git_create_tag(new_tag: str):
-    git('tag', new_tag)
+def git_create_tag(new_tag: str, capture_stdout: bool=True):
+    git('tag', new_tag, capture_stdout=capture_stdout)
