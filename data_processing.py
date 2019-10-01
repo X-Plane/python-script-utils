@@ -89,6 +89,9 @@ def reified_partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> T
 def reified_filter(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> List[Any]:
     return list(filter(pred, iterable))
 
+def reified_chain(*args):
+    return list(itertools.chain(*args))
+
 def retry(action: Callable, max_tries=5):
     attempted = 0
     while True:
