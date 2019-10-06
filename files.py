@@ -13,7 +13,7 @@ def file_sizes_bytes(files: Iterable[Pathlike]) -> int: return sum(file_size_byt
 file_size = file_size_bytes
 file_sizes = file_sizes_bytes
 def file_size_mb(f: Pathlike) -> float: return file_size_bytes(f) / 1024 / 1024
-def file_sizes_mb(files: Iterable[Pathlike]) -> int: return file_sizes_bytes(files) / 1024 / 1024
+def file_sizes_mb(files: Iterable[Pathlike]) -> float: return file_sizes_bytes(files) / 1024 / 1024
 
 def source_is_newer_than_dest(src: Pathlike, dst: Pathlike, debug_src_missing: Optional[str]=None):
     assert Path(src).exists(), f'Source {src} does not exist\n{debug_src_missing if debug_src_missing else ""}'
