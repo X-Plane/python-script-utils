@@ -6,9 +6,10 @@ from getpass import getpass
 from pathlib import Path
 from time import sleep
 from typing import Iterable, Union, List, Collection
+from urllib.parse import urlparse
 
 import requests  # TODO: Remove dependency for downstream clients
-from utils.files import Pathlike
+from utils.files import md5_hash, Pathlike
 
 global cdn_token
 try:
@@ -16,16 +17,26 @@ try:
 except KeyError:
     cdn_token = None  # we'll generate a temporary token via username & password on our first interaction with the CDN
 
+global cdn_signing_secret
+try:
+    cdn_signing_secret = os.environ['HIGHWINDS_SIGNING_SECRET']
+except KeyError:
+    cdn_signing_secret = None  # we'll ask during our first signing attempt
+
 
 class CdnServer(Enum):
     MobileSecure = 'b3y9j3a5'
     MobileUnsecured = 'j4b5j9p4'
 
-    def for_component_list(self):
+    def for_component_list(self) -> str:
         return 'SERVER_SECURE' if self is CdnServer.MobileSecure else 'SERVER_UNSECURE'
 
+    @property
+    def base_url(self) -> str:
+        return f"http://cds.{self.value}.hwcdn.net"
+
     @staticmethod
-    def from_component_list_id(server_id: str):
+    def from_component_list_id(server_id: str) -> 'CdnServer':
         return CdnServer.MobileSecure if server_id == 'SERVER_SECURE' else CdnServer.MobileUnsecured
 
 
@@ -110,7 +121,7 @@ def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collect
         mobile_abs_paths = [mobile_abs_paths]
 
     assert all(str(path).startswith('/') for path in mobile_abs_paths), 'CDN path was not absolute'
-    urls = [f"http://cds.{server.value}.hwcdn.net{path}"
+    urls = [server.base_url + str(path)
             for path in mobile_abs_paths]
     purge_job_id = client.purge(urls, recursive)
     waited = 0
@@ -125,3 +136,11 @@ def flush_cdn_cache(server: CdnServer, mobile_abs_paths: Union[Pathlike, Collect
             logging.info(f'Waiting for purge to complete (currently at {ratio_complete * 100}%, after {waited} seconds waiting)')
     logging.info(f'Purge completed after {waited} seconds')
 
+
+def sign_secured_url(original_url: str):
+    global cdn_signing_secret
+    if not cdn_signing_secret:
+        cdn_signing_secret = getpass('Highwinds Signing Secret: ').strip()
+    to_hash = f'{urlparse(original_url).path}?secret={cdn_signing_secret}'
+    checksum = md5_hash(to_hash.encode('utf-8'))
+    return f"{original_url}?sig={checksum}"
