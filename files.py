@@ -1,5 +1,7 @@
 import hashlib
 import os
+import platform
+import string
 import urllib.request
 from pathlib import Path
 from typing import Union, Iterable, List, Callable, Optional
@@ -21,6 +23,40 @@ def source_is_newer_than_dest(src: Pathlike, dst: Pathlike, debug_src_missing: O
 
 def path_has_prefix(path: Pathlike, prefix: Pathlike) -> bool:
     return str(path).startswith(str(prefix))
+
+def sanitize_file_name(file_name: str, replace_sanitized_chars_with: str='') -> Optional[str]:
+    """
+    @param replace_sanitized_chars_with Optionally replace all illegal characters we remove with this (so that you can tell in the resulting string that a modification occurred).
+                                        It's up to you to ensure this character/string is a legal filename component on your system (hint: don't pick '/')
+    @return The santized name, if we were able to strip it down/replace character to get to a legal filename, or None (if it was irretrievably garbage)
+
+    >>> sanitize_file_name('foo.png')
+    'foo.png'
+    >>> sanitize_file_name('foo//.png')
+    'foo.png'
+    >>> sanitize_file_name('/foo/.png', replace_sanitized_chars_with='_')
+    '_foo_.png'
+    >>> sanitize_file_name('.foo')
+    '.foo'
+
+    Note: All-whitespace basenames (stems) are illegal.
+    >>> sanitize_file_name('  .py') is None
+    True
+    """
+    safe_chars_on_all_platforms = f"-_.+$()[] {string.ascii_letters}{string.digits}"
+    safe_chars = frozenset(safe_chars_on_all_platforms if platform.system() == 'Windows' else safe_chars_on_all_platforms + '~?"\'')
+
+    def is_all_whitespace(s: str) -> bool:
+        return all(c == ' ' for c in s)
+    def sanitize_char(c):
+        return c if c in safe_chars else replace_sanitized_chars_with
+
+    sanitized = ''.join(sanitize_char(c) for c in file_name)
+    sanitized_p = Path(sanitized)
+    if sanitized and sanitized_p.stem and not is_all_whitespace(sanitized_p.stem):
+        return sanitized
+    else:
+        return None
 
 
 def read_from_web_or_disk(url_or_path: Union[Path, str]):
