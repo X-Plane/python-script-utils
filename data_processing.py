@@ -1,8 +1,9 @@
+import collections
 import itertools
 import multiprocessing
 import subprocess
 from time import sleep
-from typing import Any, Callable, Iterable, Set, Tuple, Union, List
+from typing import Any, Callable, Iterable, Set, Tuple, Union, List, Dict
 
 take_first_n: Callable[[Iterable[Any], int], Any] = itertools.islice
 
@@ -74,6 +75,29 @@ def flatten(list_of_list_of_lists: Union[List[Any], Tuple[Any], Set[Any]]) -> It
         else:
             yield i
 
+def flatten_dict_items(d: Dict[Any, Any]) -> List[Any]:
+    """
+    Recursively flattens a dict. Values in the dict must be either single values, lists of individual values,
+    or other dicts which themselves have the same constraints.
+
+    >>> flatten_dict_items(collections.OrderedDict(a=1, b=2, c=3))
+    [1, 2, 3]
+    >>> flatten_dict_items(collections.OrderedDict(a=[1, 2, 3], b=[4, 5, 6], c=[7, 8, 9]))
+    [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    >>> flatten_dict_items(collections.OrderedDict(a=1, b=[2, 2.25, 2.5, 2.75], c=3))
+    [1, 2, 2.25, 2.5, 2.75, 3]
+    >>> flatten_dict_items(collections.OrderedDict(a=1, b=collections.OrderedDict(d=2, e=[2.25, 2.5, 2.75], f=2.8), c=[3, 4, 5]))
+    [1, 2, 2.25, 2.5, 2.75, 2.8, 3, 4, 5]
+    """
+    out = []
+    for key, item_or_items in d.items():
+        if isinstance(item_or_items, collections.Mapping):  # dict-like
+            out += flatten_dict_items(item_or_items)
+        elif isinstance(item_or_items, collections.Iterable):
+            out += list(item_or_items)
+        else:  # must be an individual value
+            out.append(item_or_items)
+    return out
 
 def partition(pred: Callable[[Any], bool], iterable: Iterable[Any]) -> Tuple[Iterable[Any], Iterable[Any]]:
     """Use a predicate to partition entries into false entries and true entries
