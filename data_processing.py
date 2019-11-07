@@ -117,12 +117,9 @@ def reified_chain(*args):
     return list(itertools.chain(*args))
 
 def retry(action: Callable, max_tries=5):
-    attempted = 0
-    while True:
+    for attempted in range(max_tries):
         try:
             return action()
-        except Exception as e:
-            attempted += 1
-            if attempted == max_tries:
-                raise e
-            sleep(attempted)
+        except:
+            sleep(attempted + 1)
+    return action()
