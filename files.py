@@ -116,6 +116,15 @@ def correct_case(p: Pathlike, allow_file_not_found: bool=True) -> Path:
     assert str(p).lower() == str(out).lower()
     return out
 
+def write_file(complete_text_or_lines: Union[str, Iterable[str]], out_path: Path):
+    assert isinstance(out_path, Path), f'Expected a Path object instead of {out_path}'
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open('w') as out_txt_file:
+        if isinstance(complete_text_or_lines, str):
+            out_txt_file.write(complete_text_or_lines)
+        else:
+            out_txt_file.writelines(complete_text_or_lines)
+
 def read_lines(p: Pathlike) -> List[str]:
     with Path(p).open() as f:
         return list(f.readlines())

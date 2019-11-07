@@ -1,9 +1,13 @@
+import math
 import re
 import shutil
+import subprocess
 from contextlib import suppress
 from pathlib import Path
-from typing import FrozenSet, Tuple, Union, List
-from utils.files import Pathlike
+from typing import FrozenSet, Tuple, Union, List, Iterable
+
+from utils.data_processing import checked_subprocess
+from utils.files import Pathlike, read_binary, sanitize_file_name, write_file, file_sizes
 
 
 class LatLon(tuple):
@@ -24,9 +28,17 @@ class LatLon(tuple):
     def lat(self): return self[0]
 
     @staticmethod
-    def from_str(dsf_file_or_folder: str):
+    def from_str(dsf_file_or_folder: str) -> 'LatLon':
         assert is_dsf_like_path(dsf_file_or_folder), 'Expected format +00+000., but got ' + dsf_file_or_folder
         return LatLon(lat=int(dsf_file_or_folder[:3]), lon=int(dsf_file_or_folder[3:]))
+
+    @staticmethod
+    def from_airport(apt: 'Airport') -> 'LatLon':
+        return LatLon(lat=math.floor(apt.latitude), lon=math.floor(apt.longitude))
+
+    @staticmethod
+    def from_file_path(p: Path) -> 'LatLon':
+        return LatLon.from_str(f'{p.parent.name}/{p.name}')
 
 
 dsf_re = re.compile(r'^([+-]\d{2})([+-]\d{3})$')
@@ -77,6 +89,12 @@ def all_tiles(degree_width_height: int=1, min_lat=-60, max_lat=74) -> FrozenSet[
                      for lon in range(-180, 179, degree_width_height)
                      for lat in range(min_lat, max_lat, degree_width_height))
 
+def tiles_on_disk(dsf_structured_directory: Path, file_suffix: str='.dsf') -> FrozenSet[LatLon]:
+    assert dsf_structured_directory.is_dir(), f'No such directory {dsf_structured_directory}'
+    return frozenset(LatLon.from_str(f.stem)
+                     for f in dsf_structured_directory.glob('*/*')
+                     if is_dsf_like_path(f) and f.suffix == file_suffix and f.is_file())
+
 def dsf_tile_bbox(file_name: Union[LatLon, Path], width_height_deg=1) -> Tuple[int, int, int, int]:
     base_lat_lon = file_name if isinstance(file_name, LatLon) else LatLon.from_str(file_name.stem)
     return base_lat_lon.lon,                    base_lat_lon.lat, \
@@ -95,6 +113,68 @@ def tiles_in_10x10(folder_lat_lon: Union[str, Path, LatLon]) -> FrozenSet[LatLon
     return frozenset(LatLon(lat=lat, lon=lon)
                      for lon in range(folder_lat_lon.lon, folder_lat_lon.lon + 10)
                      for lat in range(folder_lat_lon.lat, folder_lat_lon.lat + 10))
+
+
+def dsf_is_7zipped(dsf_path: Path) -> bool:
+    with dsf_path.open('rb') as dsf:
+        return dsf.read(2) == b'7z'
+
+def unzip_dsf(zipped_dsf_path: Path, unzipped_out_path: Path):
+    out_dir = sanitize_file_name(zipped_dsf_path.name)
+    # Irritatingly, 7za doesn't let us just specify the final output path for a single file... only the name of the directory we'll unzip "everything" into
+    checked_subprocess('7za', 'e', zipped_dsf_path, f'-o{out_dir}')
+    unzipped_dsf = Path(out_dir) / zipped_dsf_path.name
+    unzipped_dsf.replace(unzipped_out_path)  # Move the newly unzipped file to the target path
+    shutil.rmtree(out_dir)  # Clean up temp unzip directory
+    return unzipped_out_path
+
+def zip_dsf(unzipped_dsf: Path, zipped_out_path: Path):
+    tmp_7z_file = zipped_out_path.with_suffix('.7z')
+    checked_subprocess('7za', 'a', '-m0=LZMA', tmp_7z_file, unzipped_dsf)
+    zipped_out_path.unlink()
+    tmp_7z_file.rename(zipped_out_path)
+
+
+def dsf_to_txt(source_dsf_path: Path, dsf_tool: Path) -> str:
+    """
+    Converts the (binary) DSF to text form (in memory, rather than on disk, for easy manipulation).
+    Leaves no temp files around on disk.
+    """
+    assert source_dsf_path.suffix == '.dsf'
+    if not source_dsf_path.is_file():
+        raise FileNotFoundError('Could not find source DSF %s' % source_dsf_path)
+
+    is_zipped = dsf_is_7zipped(source_dsf_path)
+    if is_zipped:
+        dsf_to_read = source_dsf_path.with_suffix('.unzipped')
+        unzip_dsf(source_dsf_path, dsf_to_read)
+    else:
+        dsf_to_read = source_dsf_path
+
+    result = checked_subprocess(dsf_tool, '-dsf2text', dsf_to_read, '-')
+    if 'ERROR:' in result.stderr:
+        raise RuntimeError(f'Error converting DSF:\n{result.stderr}')
+    end_of_output = '# Result code: '
+
+    if is_zipped:
+        dsf_to_read.unlink()
+    return result.stdout.split(end_of_output)[0]
+
+
+def txt_to_dsf(dsf_txt_lines: Union[str, Iterable[str]], target_dsf_path: Path, dsf_tool: Path, compress: bool=True) -> subprocess.CompletedProcess:
+    """Writes your DSF text lines to a binary DSF file"""
+    assert target_dsf_path.suffix == '.dsf'
+
+    tmp_txt_path: Path = target_dsf_path.with_suffix('.txt')
+    write_file(dsf_txt_lines, tmp_txt_path)
+
+    target_dsf_path.parent.mkdir(parents=True, exist_ok=True)
+    result = checked_subprocess(dsf_tool, '-text2dsf', tmp_txt_path, target_dsf_path)
+    tmp_txt_path.unlink()
+
+    if compress:
+        zip_dsf(target_dsf_path, target_dsf_path)
+    return result
 
 
 with suppress(ModuleNotFoundError):
