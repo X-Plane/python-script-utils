@@ -28,17 +28,14 @@ class LatLon(tuple):
     def lat(self): return self[0]
 
     @staticmethod
-    def from_str(dsf_file_or_folder: str) -> 'LatLon':
-        assert is_dsf_like_path(dsf_file_or_folder), 'Expected format +00+000., but got ' + dsf_file_or_folder
-        return LatLon(lat=int(dsf_file_or_folder[:3]), lon=int(dsf_file_or_folder[3:]))
+    def from_str(dsf_file_or_folder: Pathlike) -> 'LatLon':
+        assert is_dsf_like_path(dsf_file_or_folder), 'Expected format +00+000.ext, but got ' + dsf_file_or_folder
+        last_component = Path(dsf_file_or_folder).name
+        return LatLon(lat=int(last_component[:3]), lon=int(last_component[3:7]))
 
     @staticmethod
     def from_airport(apt: 'Airport') -> 'LatLon':
         return LatLon(lat=math.floor(apt.latitude), lon=math.floor(apt.longitude))
-
-    @staticmethod
-    def from_file_path(p: Path) -> 'LatLon':
-        return LatLon.from_str(f'{p.parent.name}/{p.name}')
 
 
 dsf_re = re.compile(r'^([+-]\d{2})([+-]\d{3})$')
