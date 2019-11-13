@@ -90,12 +90,14 @@ def read_library_txt(library_txt_path: Pathlike, validate_paths: bool=False) -> 
         single_spaces = compress_spaces(line)
         with suppress(ValueError):  # Just skip any malformed lines
             slashes_corrected = normalize_dir_char(single_spaces)
-            kw, lib_path, real_path_str = slashes_corrected.split(' ', 2)
-            real_path = Path(real_path_str)
-            if kw in ('EXPORT', 'EXPORT_EXTEND'):
+            tokens = slashes_corrected.split(' ')
+            kw = tokens[0]
+            if kw in ('EXPORT', 'EXPORT_EXTEND', 'EXPORT_RATIO', 'EXPORT_EXCLUDE', 'EXPORT_BACKUP'):
+                lib_path = tokens[-2]
+                real_path = Path(tokens[-1])
                 out[lib_path] = real_path
                 assert not validate_paths or (library_txt_path.parent / real_path).is_file(), f'Path {real_path} from {library_txt_path} does not exist on disk'
-                assert not validate_paths or str(real_path) == real_path_str, f'Path {real_path} from {library_txt_path} has a case mismatch---this will cause problems on case-sensitive filesystems'
+                assert not validate_paths or real_path == correct_case(real_path), f'Path {real_path} from {library_txt_path} has a case mismatch---this will cause problems on case-sensitive filesystems'
     return out
 
 
