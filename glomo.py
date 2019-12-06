@@ -120,6 +120,15 @@ class ComponentManifest:
                         continue
                 else:
                     line.strip()
+                    # A NOTE ABOUT 'install_path_prefix':
+                    #
+                    # Chris says: We don't want the install path prepended before any of the externally visible paths! It is only relevant on the CLIENT device when it's installed. The server paths have no
+                    # relation to the install_path despite the fact that it may SEEM as though they are in lock-step (because they often are). As I write this, we have a new and an old 737 on the server in different
+                    # paths. One will only work for an old install of the sim and the other will only work for a new install, but they both have the same install_path_prefix, component name etc. This is
+                    # normal operation and it's why the component list allows for different paths between components with the same name. It is the COMPONENT's path that needs to be prepended...not the install_path_prefix...
+                    # but that happens outside of this class when components do stuff with this manifest data.
+                    #
+
                     # Now look at each line and see if it's an install path prefix
                     if not install_path_prefix and line.startswith("INSTALL_PATH_PREFIX"):
                         match_obj = re.match(r'^INSTALL_PATH_PREFIX\s+(.*)', str(line))
@@ -130,7 +139,8 @@ class ComponentManifest:
                         # Check for RAWFILE line
                         match_obj = re.match(r'^RAWFILE\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+(\S+)\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+((?:[^\\\s]|\\.)+)\s+((?:[^\\\s]|\\.)+)', str(line))
                         if match_obj and len(match_obj.groups()) == 9:
-                            path = cls.unescape_spaces(install_path_prefix / match_obj.group(8))
+                            path = cls.unescape_spaces(match_obj.group(8))
+                            #path = cls.unescape_spaces(install_path_prefix / match_obj.group(8))
                             assert all(entry.in_zip for entry in entries[path]), f'Duplicated raw file {path}'
                             entries[path].append(ManifestEntry(hash=match_obj.group(7)))
                             continue
@@ -138,7 +148,8 @@ class ComponentManifest:
                         # Check for ZIP line
                         match_obj = re.match(r'^ZIP\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+((?:[^\\\s]|\\.)+)\s+((?:[^\\\s]|\\.)+)', str(line))
                         if match_obj and len(match_obj.groups()) == 4:
-                            most_recent_zip = Path(install_path_prefix) / cls.unescape_spaces(match_obj.group(3))
+                            most_recent_zip = cls.unescape_spaces(match_obj.group(3))
+                            #most_recent_zip = Path(install_path_prefix) / cls.unescape_spaces(match_obj.group(3))
                             zips[most_recent_zip] = match_obj.group(2)
                             continue
 
@@ -146,7 +157,8 @@ class ComponentManifest:
                         match_obj = re.match(r'^ZIPFILE\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+([-+]?\d+)\s+(\S+)\s+([+-]?(?:[0-9]*[.])?[0-9]+)\s+(\S+)\s+(.+)', str(line))
                         if match_obj and len(match_obj.groups()) == 8:
                             assert most_recent_zip, 'This ZIPFILE does not seem to be contained in a ZIP...?'
-                            path = cls.unescape_spaces(install_path_prefix / match_obj.group(8))
+                            path = cls.unescape_spaces(match_obj.group(8))
+                            #path = cls.unescape_spaces(install_path_prefix / match_obj.group(8))
                             assert not any(mfst_entry.in_zip == most_recent_zip for mfst_entry in entries[path]), f'File {path} must be unique within the ZIP {most_recent_zip}'
                             entries[path].append(ManifestEntry(hash=match_obj.group(7), in_zip=most_recent_zip))
                             continue
